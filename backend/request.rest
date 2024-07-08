@@ -1,0 +1,50 @@
+POST http://localhost:3000/token Content-Type: application/json
+
+{
+"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoibmlvIiwiaWF0IjoxNzIwNDY1NzA3fQ.iX2Gmt4yo2p2qWkODfySp-YBAWfUHBTx343OoCd3Ry8"
+}
+
+###
+
+POST http://localhost:3000/login HTTP/1.1
+content-type: application/json
+
+{
+    "username": "nio",
+    "password": "123"
+}
+
+###
+
+POST http://localhost:3000/signup HTTP/1.1
+content-type: application/json
+
+{
+    "username": "nio",
+    "password": "test"
+}
+
+###
+POST http://localhost:3000/task HTTP/1.1
+content-type: application/json
+
+{
+  "userid": "1",
+  "taskbody": "Task 1 body",
+  "tasktime": "20-09-24"
+}
+###
+@userid = 1
+GET http://localhost:3000/tasks/{{userid}} 
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoibmlvIiwiaWF0IjoxNzIwNDY2MjQ0fQ.gRUxdnybRec5viwRYI1pDxd9SlMtBsCDJq5b6yOOoyU
+
+###
+DELETE http://localhost:3000/task/:taskid HTTP/1.1
+content-type: application/json
+
+{
+  "username": "user1",
+}
+
+
+
