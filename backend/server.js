@@ -8,6 +8,15 @@ const jwt = require("jsonwebtoken");
 
 const app = express();
 // app.use(cors)
+app.use(
+  cors({
+    allowedHeaders: ["authorization", "Content-Type"], // you can change the headers
+    exposedHeaders: ["authorization"], // you can change the headers
+    origin: "*",
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    preflightContinue: false
+  })
+)
 app.use(express.json());
 
 const client = redis.createClient();
@@ -31,7 +40,7 @@ function authenticateToken(req, res, next) {
   });
 }
 function generateAccessToken(user) {
-  return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30s'});
+  return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET);
 }
 
 app.post("/token", (req, res) => {
@@ -71,6 +80,7 @@ app.post("/login", async (req, res) => {
         message: "Login successful",
         accessToken: accessToken,
         refreshToken: refreshToken,
+        username: username
       });
     } else {
       res.status(400).json({ error: "Invalid username or password" });
@@ -85,6 +95,9 @@ app.post("/signup", async (req, res) => {
   if (!req.body) {
     return res.status(400).json({ error: "Data is required" });
   }
+
+  // const userId = uuidv4();
+
   const { username, password } = req.body;
   if (!username || !password) {
     return res
@@ -93,13 +106,14 @@ app.post("/signup", async (req, res) => {
   }
 
   try {
-    const userExists = await client.exists("users", username);
+    const userExists = await client.hGet("users", username);
+    console.log(userExists)
     if (userExists) {
       return res.status(400).json({ error: "Username already exists" });
     }
 
     // const hashedPassword = await bcrypt.hash(password, 10);
-    await client.hSet("users", username, password);
+    await client.hSet("users",  username, password);
 
     res.status(201).json({ message: "User created successfully" });
   } catch (err) {
@@ -109,20 +123,21 @@ app.post("/signup", async (req, res) => {
 });
 
 app.post("/task", async (req, res) => {
-  const { userid, taskbody, tasktime } = req.body;
+  const { username, taskbody, tasktime } = req.body;
 
-  if (!userid || !taskbody || !tasktime) {
+  if (!username || !taskbody || !tasktime) {
     return res
       .status(400)
-      .json({ error: "Userid, task title, and task time are required" });
+      .json({ error: "username, task title, and task time are required" });
   }
 
   const taskid = uuidv4(); // Generate a unique task ID
 
   try {
-    const taskKey = `task:${taskid}:${userid}`;
+    const taskKey = `task:${taskid}:${username}`;
     await client.hSet(taskKey, "taskbody", taskbody);
     await client.hSet(taskKey, "tasktime", tasktime);
+    await client.hSet(taskKey, "taskid", taskid);
     res.status(201).json({ message: "Task created successfully", taskid });
   } catch (err) {
     console.error("Error:", err);
@@ -130,11 +145,11 @@ app.post("/task", async (req, res) => {
   }
 });
 
-app.get("/tasks/:userid", authenticateToken, async (req, res) => {
-  const { userid } = req.params;
-  console.log(`${userid}`);
+app.get("/tasks/:username", authenticateToken, async (req, res) => {
+  const { username } = req.params;
+  console.log(`${username}`);
   try {
-    const keys = await client.keys(`task:*:${userid}`);
+    const keys = await client.keys(`task:*:${username}`);
     console.log(keys);
     const tasks = [];
     for (const key of keys) {
@@ -157,16 +172,16 @@ app.get("/tasks/:userid", authenticateToken, async (req, res) => {
   }
 });
 
-app.delete("/task/:userid/:taskid", async (req, res) => {
-  const { userid, taskid } = req.params;
-
+app.delete("/task", async (req, res) => {
+  const { username, taskid } = req.query;
+  // console.log(username,",",taskid)
   try {
-    const taskKey = `task:${taskid}:${userid}`;
+    const taskKey = `task:${taskid}:${username}`;
     const exists = await client.exists(taskKey);
     if (!exists) {
       return res.status(404).json({ error: "Task not found" });
     }
-
+    // console.log(await client.hGet(taskKey))
     await client.del(taskKey);
     res.status(200).json({ message: "Task deleted successfully" });
   } catch (err) {
